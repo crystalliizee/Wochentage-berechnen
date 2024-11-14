@@ -10,11 +10,9 @@ import os
 WOCHENTAGE = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"]
 MONATSCODES = [0, 3, 3, 6, 1, 4, 6, 2, 5, 0, 3, 5]
 JAHRHUNDERTCODES = {17: 4, 18: 2, 19: 0, 20: 6, 21: 4}
-AKTUELLE_VERSION = "1.2.0"  # Aktuelle Version des Programms
-UPDATE_URL = "https://raw.githubusercontent.com/dein-github-username/dein-repository-name/main/version.txt"  # URL zur neuesten Versionsnummer
+AKTUELLE_VERSION = "1.1"  # Aktuelle Version des Programms
+UPDATE_URL = "https://raw.githubusercontent.com/crystalliizee/Wochentage-berechnen/refs/heads/main/version.txt"  # URL zur neuesten Versionsnummer
 
-
-# --- Funktionen ---
 def ist_schaltjahr(jahr):
     """Prüft, ob ein Jahr ein Schaltjahr ist."""
     return (jahr % 4 == 0 and jahr % 100 != 0) or (jahr % 400 == 0)
@@ -55,17 +53,17 @@ def zufaelliges_datum(start_jahr=1900, end_jahr=2024):
 
 # --- GUI Fenster ---
 
-def tipps_fenster(datum):  # Datum als Argument hinzufügen
+def tipps_fenster(datum):
     """Erstellt das Tipps-Fenster mit den Codes für das gegebene Datum."""
-    monat = aktuelles_datum.month  # Monat aus dem aktuellen Datum verwenden
-    jahr = aktuelles_datum.year  # Jahr aus dem aktuellen Datum verwenden
+    monat = aktuelles_datum.month
+    jahr = aktuelles_datum.year
     monats_code = monatscode(monat, jahr)
     jahres_code = jahrescode(jahr)
     jahrhundert_code = jahrhundertcode(jahr)
 
     layout = [
         [sg.Text('Codes für das Datum:', font=('Helvetica', 16))],
-        [sg.Text(f'{aktuelles_datum.strftime("%d.%m.%Y")}', font=('Helvetica', 14))],  # Aktuelles Datum anzeigen
+        [sg.Text(f'{aktuelles_datum.strftime("%d.%m.%Y")}', font=('Helvetica', 14))],
         [sg.Text('')],
         [sg.Text(f'Monatscode: {monats_code}', font=('Helvetica', 12))],
         [sg.Text(f'Jahrescode: {jahres_code}', font=('Helvetica', 12))],
@@ -107,15 +105,17 @@ def hauptfenster():
     """Erstellt das Hauptfenster des Spiels."""
     sg.theme('DarkTeal9')
     layout = [
+        [sg.Text('Wochentags-Challenge', font=('Helvetica', 24), justification='center')],  # Titel geändert
+        [sg.Text(f"Version {AKTUELLE_VERSION}", font=('Helvetica', 10), justification='center')],  # Versionsanzeige hinzugefügt
         [sg.Text('Errate den Wochentag für das folgende Datum:', font=('Helvetica', 18), justification='center')],
         [sg.Text(f"{aktuelles_datum.strftime('%d.%m.%Y')}", key='-DATUM-', font=('Helvetica', 24), justification='center')],
         [sg.Button(w, size=(10, 2), font=('Helvetica', 14)) for w in WOCHENTAGE],
         [sg.Text('', key='-ERGEBNIS-', font=('Helvetica', 14), text_color='red', justification='center')],
         [sg.Text('Highscore:', font=('Helvetica', 16)), sg.Text(highscore, key='-HIGHSCORE-', font=('Helvetica', 16))],
-        [sg.Button('Anleitung', font=('Helvetica', 14)), sg.Button('Tipps', font=('Helvetica', 14)), sg.Button('Einstellungen', font=('Helvetica', 14)), sg.Button('Beenden', font=('Helvetica', 14))]  # Einstellungen-Button hinzugefügt
+        [sg.Button('Anleitung', font=('Helvetica', 14)), sg.Button('Tipps', font=('Helvetica', 14)), sg.Button('Einstellungen', font=('Helvetica', 14)), sg.Button('Beenden', font=('Helvetica', 14))]
     ]
-    return sg.Window('Wochentag-Raten-Spiel', layout, finalize=True,
-    element_justification='c')
+    return sg.Window('Wochentags-Challenge', layout, finalize=True, element_justification='c')  # Fenstertitel geändert
+    element_justification='c'
 
 def schwierigkeitsfenster():
     """Erstellt das Fenster zur Auswahl der Schwierigkeit."""
@@ -132,13 +132,18 @@ def schwierigkeitsfenster():
 def lade_einstellungen():
     """Lädt die Schwierigkeitseinstellungen aus der settings.ini Datei."""
     config = configparser.ConfigParser()
-    config.read('settings.ini')
     try:
-        schwierigkeit = config['Einstellungen']['Schwierigkeit']
-        highscore = int(config['Einstellungen']['Highscore'])  # Highscore laden
+        with open('settings.ini', 'r') as f:  # Versuche die Datei zu öffnen
+            config.read_file(f)  # Lese die Datei, wenn sie existiert
+            schwierigkeit = config['Einstellungen']['Schwierigkeit']
+            highscore = int(config['Einstellungen']['Highscore'])
+    except FileNotFoundError:  # Wenn die Datei nicht existiert
+        schwierigkeit = 'leicht'  # Standardwerte setzen
+        highscore = 0
+        speichere_einstellungen(schwierigkeit, highscore)  # Neue Datei erstellen und speichern
     except KeyError:
-        schwierigkeit = 'leicht'  # Standardwert, falls keine Einstellung gefunden wird
-        highscore = 0  # Standardwert für Highscore
+        schwierigkeit = 'leicht'  # Standardwerte setzen
+        highscore = 0
     return schwierigkeit, highscore
 
 def speichere_einstellungen(schwierigkeit, highscore):  # Highscore als Argument hinzufügen
@@ -153,9 +158,14 @@ def check_for_updates():
     """Überprüft online, ob eine neue Version verfügbar ist."""
     try:
         response = requests.get(UPDATE_URL)
-        response.raise_for_status()  # Fehler auslösen, wenn der Download fehlschlägt
+        response.raise_for_status()
         neueste_version = response.text.strip()
-        return neueste_version
+        
+        # Versionsnummern in Tupel umwandeln
+        aktuelle_version_tupel = tuple(map(int, AKTUELLE_VERSION.split('.')))
+        neueste_version_tupel = tuple(map(int, neueste_version.split('.')))
+
+        return neueste_version if neueste_version_tupel > aktuelle_version_tupel else None  # Nur zurückgeben, wenn die neueste Version größer ist
     except requests.exceptions.RequestException as e:
         print(f"Fehler beim Überprüfen auf Updates: {e}")
         return None
@@ -163,7 +173,7 @@ def check_for_updates():
 def download_update(neueste_version):
     """Lädt die neueste Version des Skripts herunter."""
     try:
-        response = requests.get("https://raw.githubusercontent.com/dein-github-username/dein-repository-name/main/test.py")  # URL zum Skript
+        response = requests.get("https://raw.githubusercontent.com/crystalliizee/Wochentage-berechnen/refs/heads/main/test.py")  # URL zum Skript
         response.raise_for_status()
         with open("test_update.py", "wb") as f:
             f.write(response.content)
@@ -196,6 +206,7 @@ try:
 except FileNotFoundError:
     # --- Schwierigkeit auswählen ---
     schwierigkeit_window = schwierigkeitsfenster()
+    highscore = 0  # highscore hier definieren
     while True:
         event_schwierigkeit, values_schwierigkeit = schwierigkeit_window.read()
         if event_schwierigkeit in (sg.WIN_CLOSED, 'Abbrechen'):
